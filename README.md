@@ -16,6 +16,6 @@ terceiro:
 
 ./guardiao <operação> <diretorio>
 
-exemplo
+exemplo:
 
 ./guardiao cadastrar /home/gustavo-pc/Vídeos/
