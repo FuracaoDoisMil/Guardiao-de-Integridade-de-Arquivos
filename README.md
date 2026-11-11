@@ -5,6 +5,7 @@ para compilar:
 primeiro você deve instalar a biblioteca openssl:
 
 sudo apt update
+
 sudo apt install libssl-dev
 
 segundo:
