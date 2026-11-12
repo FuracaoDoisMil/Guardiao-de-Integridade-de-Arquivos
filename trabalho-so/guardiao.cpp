@@ -142,10 +142,114 @@ void cadastrar(std::string diretorio){
 
 }
 
+void verificar(std::string diretorio){
+    //verifica se o diretorio existe
+    if (!std::filesystem::exists(diretorio) || !std::filesystem::is_directory(diretorio))
+    {
+        std::cout<<"ERRO: O diretorio: "<< diretorio << " não existe\n\n";
+        return;
+    }
+
+    std::unordered_map<std::string, std::string> tabela_hash;
+
+    std::ifstream arquivo_referencia("referencias.txt");
+    //verifica se o arquivo "referencias.txt" foi criado
+    if (!arquivo_referencia.is_open())
+    {
+        std::cout<<"Erro ao abrir o arquivo referencias.txt\n\n";
+        return;
+    }
+    //verifica se o arquivo "referencias.txt" está vazio
+    if (arquivo_referencia.peek() == std::ifstream::traits_type::eof())
+    {
+        std::cout<<"O arquivo 'referencias.txt' não tem nenhum conteudo cadastrado!\n\n";
+        return;
+    }
+    
+    //Esse laço é responsavel por abrir todos os arquivos do diretorio informado recursivamente
+    for (const auto &arquivo : std::filesystem::recursive_directory_iterator(diretorio))
+    {
+        if (arquivo.is_regular_file())
+        {
+            //pega o caminho completo do arquivo
+            std::string caminho = std::filesystem::absolute(arquivo.path()).string();
+
+            //faz o calculo da hash
+            std::string hash = calcularHash(arquivo.path().string());
+
+            //se a hash não foi calculada, ele passa para o proximo item e não cadastra o que deu errado
+            if (hash.empty())
+            {
+                std::cout<<"Erro ao calcular a hash, do caminho: " <<caminho<<"\n\n";
+                continue;
+            }
+            
+            //guarda o nome do arquivo e sua hash dentro da tabela hash 
+            tabela_hash[caminho] = hash;
+            
+        }
+        
+    }
+
+    //tabela hash auxiliar que vai receber os itens já cadastrados de "referencias.txt"
+    std::unordered_map<std::string, std::string> referencias_existentes;
+
+    std::string caminho;
+    std::string hash;
+
+    //esse laço lê todas as palavras do arquivo e escreve nas variaveis caminho e hash
+    while (arquivo_referencia >> std::quoted(caminho) >> hash)
+    {
+        //armazena os itens nessa tabela hash auxiliar
+        referencias_existentes[caminho] = hash;
+
+    }
+
+    //percorre todos os arquivos atuais dentro da tabela hash
+    for (const auto &par : referencias_existentes)
+    {
+        //verifica se os arquivo já cadastrados em "referencias.txt" foram removidos 
+        if(tabela_hash.find(par.first) != tabela_hash.end()){
+
+            //verifica se a hash do arquivo atual está diferente da hash original de "referencias.txt"
+            if (tabela_hash[par.first] != par.second)
+            {
+                std::cout<<"O arquivo: "<<par.first<<" foi modificado\n"<<
+                "hash original: "<<referencias_existentes[par.first]<<"\n"<<
+                "hash atual:    "<<tabela_hash[par.first]<<"\n\n";
+            }
+            else
+            {
+                
+                std::cout<<"O arquivo: "<<par.first<<" não foi modificado!\n\n";
+            }
+            
+        }
+        else
+        {
+
+            std::cout << "O arquivo: " << par.first
+                      << " não foi encontrado no diretório especificado. "
+                      << "Pode ter sido movido ou removido.\n\n";
+        }
+    }
+    //esse laço verifica se o arquivo atual não está cadastrada em "referencias.txt"
+    for (const auto & par : tabela_hash)
+    {
+        if (referencias_existentes.find(par.first) == referencias_existentes.end())
+        {
+            std::cout<<"O arquivo: "<<par.first<< " não foi cadastrado\n\n";
+        }
+        
+    }
+    
+}
+
 int main(int argc, char *argv[]){
     if (argc < 3)
     {
         std::cout<<"Utilize ./guardiao <operação> <diretorio>\n";
+        std::cout<<"Exemplo ./guardiao cadastrar /home/gustavo-pc/Vídeos/\n\n";
         return -1;
     }
     
@@ -156,5 +260,12 @@ int main(int argc, char *argv[]){
     {
         cadastrar(diretorio);    
     }
+    
+    if (operacao == "verificar")
+    {
+        verificar(diretorio);
+    }
+
+    return 0;
     
 }
