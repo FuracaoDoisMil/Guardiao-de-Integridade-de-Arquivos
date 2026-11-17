@@ -14,8 +14,8 @@ g++ guardiao.cpp -o guardiao -lcrypto
 
 terceiro:
 
-./guardiao <operação> <diretorio>
+"./guardiao <operação> <diretorio>"
 
 exemplo:
 
-./guardiao cadastrar /home/gustavo-pc/Vídeos/
+"./guardiao cadastrar /home/gustavo-pc/Vídeos/"
