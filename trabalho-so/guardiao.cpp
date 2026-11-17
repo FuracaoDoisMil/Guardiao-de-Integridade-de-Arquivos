@@ -56,14 +56,7 @@ std::string calcularHash(std::string diretorio){
 
 }
 
-void cadastrar(std::string diretorio){
-    //verifica se o diretorio existe
-    if (!std::filesystem::exists(diretorio) || !std::filesystem::is_directory(diretorio))
-    {
-        std::cout<<"ERRO: O diretorio: "<< diretorio << " não existe\n\n";
-        return;
-    }
-    
+int cadastrar(std::string diretorio){
     //cria a tabela hash
     std::unordered_map<std::string, std::string> tabela_hash;
 
@@ -139,17 +132,11 @@ void cadastrar(std::string diretorio){
         }
         
     }
-
+    return 0;
 }
 
-void verificar(std::string diretorio){
-    //verifica se o diretorio existe
-    if (!std::filesystem::exists(diretorio) || !std::filesystem::is_directory(diretorio))
-    {
-        std::cout<<"ERRO: O diretorio: "<< diretorio << " não existe\n\n";
-        return;
-    }
-
+int verificar(std::string diretorio){
+    
     std::unordered_map<std::string, std::string> tabela_hash;
 
     std::ifstream arquivo_referencia("referencias.txt");
@@ -157,14 +144,114 @@ void verificar(std::string diretorio){
     if (!arquivo_referencia.is_open())
     {
         std::cout<<"Erro ao abrir o arquivo referencias.txt\n\n";
-        return;
+        return 2;
     }
-    //verifica se o arquivo "referencias.txt" está vazio
-    if (arquivo_referencia.peek() == std::ifstream::traits_type::eof())
+
+
+    int arquivosAnalisados = 0;
+    int arquivosModificados = 0;
+    int arquivosNovos = 0;
+    int arquivosRemovidos = 0;    
+    
+    //Esse laço é responsavel por abrir todos os arquivos do diretorio informado recursivamente
+    for (const auto &arquivo : std::filesystem::recursive_directory_iterator(diretorio))
     {
-        std::cout<<"O arquivo 'referencias.txt' não tem nenhum conteudo cadastrado!\n\n";
-        return;
+        if (arquivo.is_regular_file())
+        {
+            //pega o caminho completo do arquivo
+            std::string caminho = std::filesystem::absolute(arquivo.path()).string();
+
+            //faz o calculo da hash
+            std::string hash = calcularHash(arquivo.path().string());
+
+            //se a hash não foi calculada, ele passa para o proximo item e não cadastra o que deu errado
+            if (hash.empty())
+            {
+                std::cout<<"Erro ao calcular a hash, do caminho: " <<caminho<<"\n\n";
+                continue;
+            }
+            
+            //guarda o nome do arquivo e sua hash dentro da tabela hash 
+            tabela_hash[caminho] = hash;
+            arquivosAnalisados++;        
+        }
+        
     }
+
+    //tabela hash auxiliar que vai receber os itens já cadastrados de "referencias.txt"
+    std::unordered_map<std::string, std::string> referencias_existentes;
+
+    std::string caminho;
+    std::string hash;
+
+    //esse laço lê todas as palavras do arquivo e escreve nas variaveis caminho e hash
+    while (arquivo_referencia >> std::quoted(caminho) >> hash)
+    {
+        //armazena os itens nessa tabela hash auxiliar
+        referencias_existentes[caminho] = hash;
+
+    }
+
+
+    //percorre todos os arquivos atuais dentro da tabela hash
+    for (const auto &par : referencias_existentes)
+    {
+        //verifica se o arquivo de referencias não foi removido
+        if (tabela_hash.find(par.first) != tabela_hash.end())
+        {
+            //verifica se o arquivo de referencias foi modificado
+            if (tabela_hash[par.first] != par.second)
+            {
+                arquivosModificados++;
+            }
+            
+        }
+        else
+        {
+            arquivosRemovidos++;
+        }
+        
+    }
+
+    for (const auto &par : tabela_hash)
+    {
+        //verifica se o arquivo não está em referencias, logo foi criado recentemente
+        if (referencias_existentes.find(par.first) == referencias_existentes.end())
+        {
+            arquivosNovos++;
+        }
+        
+    }
+
+    std::cout<< "Verificação foi concluida com sucesso!\n\n"
+    <<"Arquivos Analisados: "<<arquivosAnalisados<<"\n"
+    <<"Arquivos Modificados: "<<arquivosModificados<<"\n"
+    <<"Arquivos Novos: "<<arquivosNovos<<"\n"
+    <<"Arquivos Removidos: "<<arquivosRemovidos<<"\n\n";    
+    
+    if (arquivosModificados > 0|| arquivosNovos > 0 || arquivosRemovidos > 0)
+    {
+        std::cout<<"Alterações detectadas!!!\n\n";
+        return 1;
+    }
+    else{
+        std::cout<<"Não houve alterações!!!\n\n";
+    }
+
+    return 0;
+}
+
+int identificarAlteracoes(std::string diretorio){
+    std::unordered_map<std::string, std::string> tabela_hash;
+
+    std::ifstream arquivo_referencia("referencias.txt");
+    //verifica se o arquivo "referencias.txt" foi criado
+    if (!arquivo_referencia.is_open())
+    {
+        std::cout<<"Erro ao abrir o arquivo referencias.txt\n\n";
+        return 2;
+    }
+
     
     //Esse laço é responsavel por abrir todos os arquivos do diretorio informado recursivamente
     for (const auto &arquivo : std::filesystem::recursive_directory_iterator(diretorio))
@@ -197,52 +284,61 @@ void verificar(std::string diretorio){
     std::string caminho;
     std::string hash;
 
-    //esse laço lê todas as palavras do arquivo e escreve nas variaveis caminho e hash
-    while (arquivo_referencia >> std::quoted(caminho) >> hash)
+
+    if (arquivo_referencia.peek() != std::ifstream::traits_type::eof())
     {
-        //armazena os itens nessa tabela hash auxiliar
-        referencias_existentes[caminho] = hash;
+        //esse laço lê todas as palavras do arquivo e escreve nas variaveis caminho e hash
+        while (arquivo_referencia >> std::quoted(caminho) >> hash)
+        {
+            //armazena os itens nessa tabela hash auxiliar
+            referencias_existentes[caminho] = hash;
 
-    }
+        }
 
-    //percorre todos os arquivos atuais dentro da tabela hash
-    for (const auto &par : referencias_existentes)
-    {
-        //verifica se os arquivo já cadastrados em "referencias.txt" foram removidos 
-        if(tabela_hash.find(par.first) != tabela_hash.end()){
+        //percorre todos os arquivos atuais dentro da tabela hash
+        for (const auto &par : referencias_existentes)
+        {
+            //verifica se os arquivo já cadastrados em "referencias.txt" foram removidos 
+            if(tabela_hash.find(par.first) != tabela_hash.end()){
 
-            //verifica se a hash do arquivo atual está diferente da hash original de "referencias.txt"
-            if (tabela_hash[par.first] != par.second)
-            {
-                std::cout<<"O arquivo: "<<par.first<<" foi modificado\n"<<
-                "hash original: "<<referencias_existentes[par.first]<<"\n"<<
-                "hash atual:    "<<tabela_hash[par.first]<<"\n\n";
+                //verifica se a hash do arquivo atual está diferente da hash original de "referencias.txt"
+                if (tabela_hash[par.first] != par.second)
+                {
+                    std::cout<<"O arquivo: "<<par.first<<" foi modificado\n"<<
+                    "hash original: "<<referencias_existentes[par.first]<<"\n"<<
+                    "hash atual:    "<<tabela_hash[par.first]<<"\n\n";
+                }
+                else
+                {
+                    
+                    std::cout<<"O arquivo: "<<par.first<<" não foi modificado!\n\n";
+                }
+                
             }
             else
             {
-                
-                std::cout<<"O arquivo: "<<par.first<<" não foi modificado!\n\n";
-            }
-            
-        }
-        else
-        {
 
-            std::cout << "O arquivo: " << par.first
-                      << " não foi encontrado no diretório especificado. "
-                      << "Pode ter sido movido ou removido.\n\n";
-        }
+                std::cout << "O arquivo: " << par.first
+                        << " não foi encontrado no diretório especificado. "
+                        << "Pode ter sido movido ou removido.\n\n";
+            }
+        }    
     }
-    //esse laço verifica se o arquivo atual não está cadastrada em "referencias.txt"
+    else{
+        std::cout<<"O arquivo 'referencias.txt' não tem nenhum conteudo cadastrado!\n\n";
+    }
+    
+    //esse laço verifica se o arquivo foi criado recentemente
     for (const auto & par : tabela_hash)
     {
         if (referencias_existentes.find(par.first) == referencias_existentes.end())
         {
-            std::cout<<"O arquivo: "<<par.first<< " não foi cadastrado\n\n";
+            std::cout<<"O arquivo: "<<par.first<< " foi criado recentemente, recomendo que ele seja cadastrado em referencias.txt\n\n";
         }
         
     }
-    
+
+    return 0;
 }
 
 int main(int argc, char *argv[]){
@@ -250,22 +346,36 @@ int main(int argc, char *argv[]){
     {
         std::cout<<"Utilize ./guardiao <operação> <diretorio>\n";
         std::cout<<"Exemplo ./guardiao cadastrar /home/gustavo-pc/Vídeos/\n\n";
-        return -1;
+        return 2;
     }
     
     std::string operacao = argv[1];
     std::string diretorio = argv[2];
+    //verifica se o diretorio existe
+    
+    if (!std::filesystem::exists(diretorio) || !std::filesystem::is_directory(diretorio))
+    {
+        std::cout<<"ERRO: O diretorio: "<< diretorio << " não existe\n\n";
+        return 2;
+    }
 
     if (operacao == "cadastrar")
     {
-        cadastrar(diretorio);    
+        return cadastrar(diretorio);    
     }
     
-    if (operacao == "verificar")
+    else if (operacao == "verificar")
     {
-        verificar(diretorio);
+        return verificar(diretorio);
     }
 
-    return 0;
+    else if (operacao == "identificar")
+    {
+        return identificarAlteracoes(diretorio);
+    }
+    else{
+        std::cout<<"A operação espeficicada não existe ou foi escrita incorretamente!\n";
+        return 2;
+    }
     
 }
