@@ -4,7 +4,8 @@
 #include <unordered_map> 
 #include <filesystem>    
 #include <sstream>       
-#include <iomanip>       
+#include <iomanip>
+#include <ctime>       
 #include <openssl/evp.h> 
 
 
@@ -55,6 +56,56 @@ std::string calcularHash(std::string diretorio){
     return resultado.str();
 
 }
+
+std::ofstream gerarLog(std::string operacao, std::string diretorio) {
+    //cria a pasta logs
+    std::filesystem::create_directories("logs");
+    
+    
+
+    int contador = 0;
+    std::string caminho;
+
+    //cria o arquivo log
+    std::ofstream arquivo_log;
+    
+    //laço responsavel para criar o log com seu respectivel numero, exemplo:
+    //se já existir log1.txt e cria o log2.txt e por assim vai 
+    while (true) {
+        if (contador == 0) {
+            caminho = "logs/log.txt";
+        } else {
+            caminho = "logs/log" + std::to_string(contador) + ".txt";
+        }
+
+        if (!std::filesystem::exists(caminho)) {
+            arquivo_log.open(caminho);
+            break;
+        }
+
+        contador++;
+    }
+
+    if (!arquivo_log.is_open()) {
+        std::cout << "Erro ao criar arquivo de log!\n";
+        return arquivo_log;
+    }
+
+    //variaveis responsaveis por pegar a data e hora 
+    std::time_t agora = std::time(nullptr);
+    std::tm* data_hora = std::localtime(&agora);
+
+    arquivo_log << "========================================\n"
+    << "LOG - GUARDIAO DE INTEGRIDADE\n"
+    << "Data: " << std::put_time(data_hora, "%d/%m/%Y") << "\n"
+    << "Horario: " << std::put_time(data_hora, "%H:%M:%S") << "\n"
+    << "Operacao: " << operacao << "\n"
+    << "Diretorio: " << diretorio << "\n"
+    << "========================================\n\n";
+
+    return arquivo_log;
+}
+
 
 int cadastrar(std::string diretorio){
     //cria a tabela hash
@@ -139,11 +190,16 @@ int verificar(std::string diretorio){
     
     std::unordered_map<std::string, std::string> tabela_hash;
 
+    //variavel responsavel por preencher o arquivo de log
+    auto arquivo_log = gerarLog("Verificar Integridade", diretorio);
+
     std::ifstream arquivo_referencia("referencias.txt");
+    
     //verifica se o arquivo "referencias.txt" foi criado
     if (!arquivo_referencia.is_open())
     {
         std::cout<<"Erro ao abrir o arquivo referencias.txt\n\n";
+        arquivo_log <<"Erro ao abrir o arquivo referencias.txt\n" <<"Encerrando o programa!!!\n\n";
         return 2;
     }
 
@@ -168,6 +224,7 @@ int verificar(std::string diretorio){
             if (hash.empty())
             {
                 std::cout<<"Erro ao calcular a hash, do caminho: " <<caminho<<"\n\n";
+                arquivo_log<<"Erro ao calcular a hash, do caminho: " <<caminho<<"\n\n";
                 continue;
             }
             
@@ -227,15 +284,24 @@ int verificar(std::string diretorio){
     <<"Arquivos Analisados: "<<arquivosAnalisados<<"\n"
     <<"Arquivos Modificados: "<<arquivosModificados<<"\n"
     <<"Arquivos Novos: "<<arquivosNovos<<"\n"
-    <<"Arquivos Removidos: "<<arquivosRemovidos<<"\n\n";    
+    <<"Arquivos Removidos: "<<arquivosRemovidos<<"\n\n"; 
+    
+    arquivo_log <<"Verificação foi concluida com sucesso!\n\n"
+    <<"Arquivos Analisados: "<<arquivosAnalisados<<"\n"
+    <<"Arquivos Modificados: "<<arquivosModificados<<"\n"
+    <<"Arquivos Novos: "<<arquivosNovos<<"\n"
+    <<"Arquivos Removidos: "<<arquivosRemovidos<<"\n\n"; 
+
     
     if (arquivosModificados > 0|| arquivosNovos > 0 || arquivosRemovidos > 0)
     {
         std::cout<<"Alterações detectadas!!!\n\n";
+        arquivo_log <<"Alterações detectadas!!!\n\n";
         return 1;
     }
     else{
         std::cout<<"Não houve alterações!!!\n\n";
+        arquivo_log <<"Não houve alterações!!!\n\n";
     }
 
     return 0;
@@ -243,12 +309,17 @@ int verificar(std::string diretorio){
 
 int identificarAlteracoes(std::string diretorio){
     std::unordered_map<std::string, std::string> tabela_hash;
+    
+    //variavel responsavel por preencher o arquivo de log
+    auto arquivo_log = gerarLog("Identificar Alterações", diretorio);
 
     std::ifstream arquivo_referencia("referencias.txt");
+    
     //verifica se o arquivo "referencias.txt" foi criado
     if (!arquivo_referencia.is_open())
     {
-        std::cout<<"Erro ao abrir o arquivo referencias.txt\n\n";
+        std::cout<<"Erro ao abrir o arquivo referencias.txt\n"<< "Encerrando o programa!!!\n\n";
+        arquivo_log <<"Erro ao abrir o arquivo referencias.txt\n" << "Encerrando o programa!!!\n\n";
         return 2;
     }
 
@@ -268,6 +339,7 @@ int identificarAlteracoes(std::string diretorio){
             if (hash.empty())
             {
                 std::cout<<"Erro ao calcular a hash, do caminho: " <<caminho<<"\n\n";
+                arquivo_log<<"Erro ao calcular a hash, do caminho: " <<caminho<<"\n\n";
                 continue;
             }
             
@@ -307,11 +379,17 @@ int identificarAlteracoes(std::string diretorio){
                     std::cout<<"O arquivo: "<<par.first<<" foi modificado\n"<<
                     "hash original: "<<referencias_existentes[par.first]<<"\n"<<
                     "hash atual:    "<<tabela_hash[par.first]<<"\n\n";
+
+                    arquivo_log<<"O arquivo: "<<par.first<<" foi modificado\n"<<
+                    "hash original: "<<referencias_existentes[par.first]<<"\n"<<
+                    "hash atual:    "<<tabela_hash[par.first]<<"\n\n";
+
                 }
                 else
                 {
                     
                     std::cout<<"O arquivo: "<<par.first<<" não foi modificado!\n\n";
+                    arquivo_log<<"O arquivo: "<<par.first<<" não foi modificado!\n\n";
                 }
                 
             }
@@ -321,11 +399,16 @@ int identificarAlteracoes(std::string diretorio){
                 std::cout << "O arquivo: " << par.first
                         << " não foi encontrado no diretório especificado. "
                         << "Pode ter sido movido ou removido.\n\n";
+
+                arquivo_log << "O arquivo: " << par.first
+                        << " não foi encontrado no diretório especificado. "
+                        << "Pode ter sido movido ou removido.\n\n";
             }
         }    
     }
     else{
         std::cout<<"O arquivo 'referencias.txt' não tem nenhum conteudo cadastrado!\n\n";
+        arquivo_log<<"O arquivo 'referencias.txt' não tem nenhum conteudo cadastrado!\n\n";
     }
     
     //esse laço verifica se o arquivo foi criado recentemente
@@ -334,12 +417,15 @@ int identificarAlteracoes(std::string diretorio){
         if (referencias_existentes.find(par.first) == referencias_existentes.end())
         {
             std::cout<<"O arquivo: "<<par.first<< " foi criado recentemente, recomendo que ele seja cadastrado em referencias.txt\n\n";
+            arquivo_log<<"O arquivo: "<<par.first<< " foi criado recentemente, recomendo que ele seja cadastrado em referencias.txt\n\n";
         }
         
     }
 
     return 0;
 }
+
+
 
 int main(int argc, char *argv[]){
     if (argc < 3)
